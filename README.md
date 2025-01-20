@@ -1,7 +1,9 @@
 # HMM
 This is First-Order Hidden Markov Model (HMM), implemented in Python and includes visualization tools.
 
-This project provides a Python implementation of a First-Order Hidden Markov Model (HMM) along with utilities for visualization and training. The implementation supports key algorithms such as Forward, Backward, Viterbi, and Baum-Welch, and includes tools to visualize model parameters, probabilities, and training progression. It only has one sequence but can be easily revised to handle the multiple
+This project provides a Python implementation of a First-Order Hidden Markov Model (HMM) along with utilities for visualization and training. The implementation supports key algorithms such as Forward, Backward, Viterbi, and Baum-Welch, and includes tools to visualize model parameters, probabilities, and training progression. It only has one sequence but can be easily revised to handle the multiple.
+
+There is a test sample, and another sample for solving a weather-action real world problem. U can always change the matrix size/name/probability to apply to problems
 
 Features
 
@@ -32,14 +34,6 @@ Heatmaps for Forward, Backward, Transition, and Emission matrices.
 Line plots for Log-Likelihood progression and Scaling factors during training.
 
 Viterbi decoded path visualization.
-
-File Structure
-
-HMM_Project/
-├── hmm.py           # Implementation of the HMM class
-├── visualize.py     # Visualization utilities for matrices and training progress
-├── test_hmm.py      # Example script demonstrating HMM functionality and visualizations
-Installation
 
 Clone the repository:
 
