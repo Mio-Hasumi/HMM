@@ -44,28 +44,3 @@ Installation
 Clone the repository:
 
 git clone https://github.com/Mio-Hasumi/HMM 
-cd hmm-project
-
-Install dependencies:
-
-pip install numpy
-pip install matplotlib
-pip install seaborn
-
-Usage
-
-Run the Sample Test Script/Use
-
-The test_hmm.py script demonstrates the following:
-
-Generating a synthetic observation and hidden state sequence.
-
-Calculating Forward and Backward probabilities.
-
-Computing the log-probability of the observation sequence.
-
-Decoding the most probable hidden state path using Viterbi.
-
-Training the HMM with Baum-Welch.
-
-Visualizing model parameters and results.
