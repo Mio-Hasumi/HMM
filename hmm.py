@@ -105,7 +105,7 @@ class HMM:
         forward_probs = np.zeros((num_states, seq_length))
         scaling_factors = np.zeros(seq_length)
 
-        # Initialization
+
         forward_probs[:, 0] = self.initial_probs * self.emission_probs[:, observation_sequence[0]]
         scaling_factors[0] = forward_probs[:, 0].sum()
         if scaling_factors[0] == 0:
@@ -146,7 +146,6 @@ class HMM:
 
         backward_probs = np.zeros((num_states, seq_length))
 
-        # Initialization
         backward_probs[:, -1] = 1.0 / scaling_factors[-1]
 
         # Recursion
@@ -199,7 +198,6 @@ class HMM:
         pointers = np.zeros((num_states, seq_length), dtype=int)
         viterbi_probs = np.zeros((num_states, seq_length))
 
-        # Initialization
         viterbi_probs[:, 0] = (
             np.log(self.initial_probs + self.epsilon)
             + np.log(self.emission_probs[:, observation_sequence[0]] + self.epsilon)
@@ -238,7 +236,7 @@ class HMM:
         last_state = np.argmax(viterbi_probs[:, -1])
         best_log_prob = viterbi_probs[last_state, -1]
 
-        # Backtrack to get the full path
+        # Full path
         best_path = [last_state]
         for t in range(len(observation_sequence) - 1, 0, -1):
             last_state = pointers[last_state, t]
