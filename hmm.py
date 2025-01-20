@@ -7,14 +7,14 @@ class HMM:
     Attributes
     ----------
     transition_probs : numpy.ndarray
-        State transition probability matrix of shape (N, N)
+        State transition probability matrix of shape (N, N).
     emission_probs : numpy.ndarray
         Emission probability matrix of shape (N, M), where N is the number of states
-        and M is the number of observation symbols
+        and M is the number of observation symbols.
     initial_probs : numpy.ndarray
-        Initial state probability vector of shape (N,)
+        Initial state probability vector of shape (N,).
     epsilon : float
-        Small constant to prevent zero probabilities
+        Small constant to prevent zero probabilities (default=1e-6).
     """
     def __init__(self, transition_probs, emission_probs, initial_probs, epsilon=1e-6):
         """
@@ -24,16 +24,16 @@ class HMM:
         Parameters
         ----------
         transition_probs : numpy.ndarray
-            State transition probability matrix
+            State transition probability matrix (N x N).
         emission_probs : numpy.ndarray
-            Emission probability matrix
+            Emission probability matrix (N x M).
         initial_probs : numpy.ndarray
-            Initial state probability vector
+            Initial state probability vector (length N).
         epsilon : float, optional
-            Small constant to avoid zero probabilities, default is 1e-6
+            Small constant to avoid zero probabilities, default is 1e-6.
         """
         self.epsilon = epsilon
-        # Avoid zero probabilities by adding epsilon and renormalizing
+        # Avoid zero probabilities
         self.transition_probs = transition_probs + self.epsilon
         self.transition_probs /= self.transition_probs.sum(axis=1, keepdims=True)
         
@@ -45,7 +45,7 @@ class HMM:
 
     def generate_sequence(self, sequence_length):
         """
-        Generate a sequence of observations and hidden states.
+        Generate a random sequence of observations and hidden states based on the HMM.
         
         Parameters
         ----------
@@ -54,50 +54,50 @@ class HMM:
         
         Returns
         -------
-        observations : numpy.ndarray
-            Generated observation sequence
-        states : numpy.ndarray
-            Generated hidden state sequence
+        observations : np.ndarray, shape=(sequence_length,)
+            Generated observation indices.
+        states : np.ndarray, shape=(sequence_length,)
+            Generated hidden state indices.
         """
         observations = np.zeros(sequence_length, dtype=int)
         states = np.zeros(sequence_length, dtype=int)
 
-        # Initial state and observation
-        states[0] = np.random.choice(len(self.initial_probs), p=self.initial_probs)
+        states[0] = np.random.choice(
+            len(self.initial_probs),
+            p=self.initial_probs
+        )
         observations[0] = np.random.choice(
             len(self.emission_probs[states[0]]),
-            p=self.emission_probs[states[0], :]
+            p=self.emission_probs[states[0]]
         )
-
-        # Generate subsequent states and observations
         for t in range(1, sequence_length):
             states[t] = np.random.choice(
                 len(self.transition_probs[states[t-1]]),
-                p=self.transition_probs[states[t-1], :]
+                p=self.transition_probs[states[t-1]]
             )
             observations[t] = np.random.choice(
                 len(self.emission_probs[states[t]]),
-                p=self.emission_probs[states[t], :]
+                p=self.emission_probs[states[t]]
             )
 
         return observations, states
 
     def forward_algorithm(self, observation_sequence):
         """
-        Perform the Forward algorithm with scaling to compute the forward probability
+        Perform the Forward algorithm (with scaling) to compute the forward probability
         matrix and scaling factors.
         
         Parameters
         ----------
         observation_sequence : list or np.ndarray
-            Sequence of observations
+            Sequence of observation indices.
         
         Returns
         -------
-        forward_probs : numpy.ndarray
-            Scaled forward probability matrix of shape (N, T)
-        scaling_factors : numpy.ndarray
-            Scaling factors for each time step of shape (T,)
+        forward_probs : np.ndarray, shape=(N, T)
+            Scaled forward probabilities.
+        scaling_factors : np.ndarray, shape=(T,)
+            Scaling factors at each time step.
         """
         num_states = self.transition_probs.shape[0]
         seq_length = len(observation_sequence)
@@ -114,7 +114,9 @@ class HMM:
 
         # Recursion
         for t in range(1, seq_length):
-            forward_probs[:, t] = (forward_probs[:, t-1] @ self.transition_probs) * self.emission_probs[:, observation_sequence[t]]
+            forward_probs[:, t] = (
+                forward_probs[:, t-1] @ self.transition_probs
+            ) * self.emission_probs[:, observation_sequence[t]]
             scaling_factors[t] = forward_probs[:, t].sum()
             if scaling_factors[t] == 0:
                 raise ValueError(f"Scaling factor at t={t} is zero.")
@@ -124,20 +126,20 @@ class HMM:
 
     def backward_algorithm(self, observation_sequence, scaling_factors):
         """
-        Perform the Backward algorithm with scaling to compute the backward probability
+        Perform the Backward algorithm (with scaling) to compute the backward probability
         matrix.
         
         Parameters
         ----------
         observation_sequence : list or np.ndarray
-            Sequence of observations
-        scaling_factors : numpy.ndarray
-            Scaling factors from the Forward algorithm
+            Sequence of observation indices.
+        scaling_factors : np.ndarray
+            Scaling factors from the forward algorithm.
         
         Returns
         -------
-        backward_probs : numpy.ndarray
-            Scaled backward probability matrix of shape (N, T)
+        backward_probs : np.ndarray, shape=(N, T)
+            Scaled backward probabilities.
         """
         num_states = self.transition_probs.shape[0]
         seq_length = len(observation_sequence)
@@ -149,25 +151,27 @@ class HMM:
 
         # Recursion
         for t in reversed(range(seq_length - 1)):
-            backward_probs[:, t] = (self.transition_probs @ (self.emission_probs[:, observation_sequence[t+1]] * backward_probs[:, t+1]))
+            backward_probs[:, t] = (
+                self.transition_probs
+                @ (self.emission_probs[:, observation_sequence[t+1]] * backward_probs[:, t+1])
+            )
             backward_probs[:, t] /= scaling_factors[t]
 
         return backward_probs
 
     def compute_observation_probability(self, observation_sequence):
         """
-        Compute the log probability of the observation sequence using the
-        Forward algorithm.
+        Compute the log probability of the observation sequence using the scaled Forward algorithm.
         
         Parameters
         ----------
         observation_sequence : list or np.ndarray
-            Sequence of observations
+            Sequence of observation indices.
         
         Returns
         -------
         log_prob : float
-            Log probability of the observation sequence
+            Log probability of the observation sequence.
         """
         _, scaling_factors = self.forward_algorithm(observation_sequence)
         log_prob = -np.sum(np.log(scaling_factors + self.epsilon))
@@ -175,19 +179,19 @@ class HMM:
 
     def viterbi_algorithm(self, observation_sequence):
         """
-        Perform the Viterbi algorithm to find the most probable state path.
+        Perform the Viterbi algorithm to find the most probable state path in log-space.
         
         Parameters
         ----------
         observation_sequence : list or np.ndarray
-            Sequence of observations
+            Sequence of observation indices.
         
         Returns
         -------
-        viterbi_probs : numpy.ndarray
-            Log probability matrix of shape (N, T)
-        pointers : numpy.ndarray
-            Backpointers matrix of shape (N, T)
+        viterbi_probs : np.ndarray, shape=(N, T)
+            Log probability matrix for each state at each time step.
+        pointers : np.ndarray, shape=(N, T)
+            Pointers to the most probable previous state for path reconstruction.
         """
         num_states = self.transition_probs.shape[0]
         seq_length = len(observation_sequence)
@@ -203,12 +207,12 @@ class HMM:
 
         # Recursion
         for t in range(1, seq_length):
-            for state in range(num_states):
-                prob = viterbi_probs[:, t-1] + np.log(self.transition_probs[:, state] + self.epsilon)
-                pointers[state, t] = np.argmax(prob)
-                viterbi_probs[state, t] = (
-                    np.max(prob)
-                    + np.log(self.emission_probs[state, observation_sequence[t]] + self.epsilon)
+            for s in range(num_states):
+                trans_probs = viterbi_probs[:, t-1] + np.log(self.transition_probs[:, s] + self.epsilon)
+                pointers[s, t] = np.argmax(trans_probs)
+                viterbi_probs[s, t] = (
+                    np.max(trans_probs)
+                    + np.log(self.emission_probs[s, observation_sequence[t]] + self.epsilon)
                 )
 
         return viterbi_probs, pointers
@@ -220,43 +224,48 @@ class HMM:
         Parameters
         ----------
         observation_sequence : list or np.ndarray
-            Sequence of observations
+            Sequence of observation indices.
         
         Returns
         -------
         best_log_prob : float
-            Log probability of the best state path
-        best_path : list
-            Most probable state path
+            Log probability of the best path.
+        best_path : list of int
+            The state indices representing the most probable state path.
         """
-        V, pointers = self.viterbi_algorithm(observation_sequence)
-        last_state = np.argmax(V[:, -1])
-        best_log_prob = V[last_state, -1]
+        viterbi_probs, pointers = self.viterbi_algorithm(observation_sequence)
+        # Identify the best final state
+        last_state = np.argmax(viterbi_probs[:, -1])
+        best_log_prob = viterbi_probs[last_state, -1]
+
+        # Backtrack to get the full path
         best_path = [last_state]
         for t in range(len(observation_sequence) - 1, 0, -1):
             last_state = pointers[last_state, t]
             best_path.insert(0, last_state)
+
         return best_log_prob, best_path
 
     def train_baum_welch(self, observations, convergence_threshold=0.01, max_iterations=1000):
         """
-        Train the HMM using the Baum-Welch algorithm, with smoothing to prevent zero probabilities.
+        Train the HMM using the Baum-Welch (EM) algorithm with scaled Forward/Backward computations.
         
         Parameters
         ----------
-        observations : list or numpy.ndarray
-            Observation sequence (or a list of them, if you wish to extend)
+        observations : list of np.ndarray or np.ndarray
+            Single or multiple observation sequences. If a single sequence is passed directly,
+            it will be converted into a list of length 1.
         convergence_threshold : float, optional
-            Convergence threshold (default 0.01)
+            Threshold for stopping based on log-likelihood improvement (default=0.01).
         max_iterations : int, optional
-            Maximum number of iterations (default 1000)
+            Maximum number of EM iterations (default=1000).
         
         Returns
         -------
-        log_likelihoods : list
-            List of log-likelihoods for each iteration
+        log_likelihoods : list of float
+            Log-likelihood values for each iteration.
         """
-        # Convert to list of sequences if not already
+        # Ensure we can handle multiple sequences
         if isinstance(observations, np.ndarray):
             if observations.ndim == 1:
                 observations = [observations]
@@ -269,32 +278,33 @@ class HMM:
             raise ValueError("Observations must be a list or numpy array.")
 
         num_states = self.transition_probs.shape[0]
+        num_emissions = self.emission_probs.shape[1]
         log_likelihoods = []
 
         for iteration in range(max_iterations):
-            total_log_prob = 0
+            total_log_prob = 0.0
             xi_sum = np.zeros_like(self.transition_probs)
             gamma_sum = np.zeros_like(self.emission_probs)
-            gamma_initial_sum = np.zeros(self.initial_probs.shape)
+            gamma_initial_sum = np.zeros_like(self.initial_probs)
 
             for seq in observations:
-                try:
-                    # Forward and Backward passes
-                    alpha, scaling_factors = self.forward_algorithm(seq)
-                    beta = self.backward_algorithm(seq, scaling_factors)
-                except ValueError as e:
-                    print(f"Iteration {iteration}: {e}")
-                    break
+                alpha, scaling_factors = self.forward_algorithm(seq)
+                beta = self.backward_algorithm(seq, scaling_factors)
 
-                # Compute xi and gamma
                 T = len(seq)
+                # xi: shape (N, N, T-1)
                 xi = np.zeros((num_states, num_states, T - 1))
+
+                # Compute xi for each time step (except the last, T-1)
                 for t in range(T - 1):
                     denominator = np.sum(
-                        alpha[:, t] * self.transition_probs * self.emission_probs[:, seq[t+1]] * beta[:, t+1]
+                        alpha[:, t]
+                        * self.transition_probs
+                        * self.emission_probs[:, seq[t+1]]
+                        * beta[:, t+1]
                     )
                     if denominator == 0:
-                        print(f"Iteration {iteration}: Denominator zero at time {t}. Skipping this sequence.")
+                        print(f"Iteration {iteration}: Zero denominator at time {t}, skipping this seq.")
                         break
                     for i in range(num_states):
                         numerator = (
@@ -308,27 +318,34 @@ class HMM:
                     gamma = np.sum(xi, axis=1)
                     # final gamma for time T-1
                     final_gamma = alpha[:, -1] * beta[:, -1]
-                    final_gamma /= np.sum(final_gamma) + self.epsilon
+                    final_gamma /= (np.sum(final_gamma) + self.epsilon)
                     gamma = np.hstack((gamma, final_gamma.reshape(-1, 1)))
 
-                    # Update accumulators
+                    # Accumulate E-steps
                     xi_sum += np.sum(xi, axis=2)
                     gamma_initial_sum += gamma[:, 0]
+
                     for state in range(num_states):
-                        for symbol in range(self.emission_probs.shape[1]):
+                        for symbol in range(num_emissions):
                             mask = (seq == symbol)
                             gamma_sum[state, symbol] += np.sum(gamma[state, mask])
 
-                    # Compute log-likelihood
-                    log_prob = np.sum(np.log(scaling_factors + self.epsilon))
-                    total_log_prob += log_prob
+                    # Accumulate the NEGATIVE log-likelihood from this sequence
+                    log_prob_seq = -np.sum(np.log(scaling_factors + self.epsilon))
+                    total_log_prob += log_prob_seq
 
-            # Update model parameters
-            new_initial_probs = gamma_initial_sum / np.sum(gamma_initial_sum)
-            new_transition_probs = xi_sum / (np.sum(xi_sum, axis=1, keepdims=True) + self.epsilon)
-            new_emission_probs = gamma_sum / (np.sum(gamma_sum, axis=1, keepdims=True) + self.epsilon)
+            # M-step: update initial, transition, and emission probabilities
+            new_initial_probs = gamma_initial_sum / (np.sum(gamma_initial_sum) + self.epsilon)
 
-            # Smoothing to prevent zero probabilities
+            new_transition_probs = xi_sum / (
+                np.sum(xi_sum, axis=1, keepdims=True) + self.epsilon
+            )
+
+            new_emission_probs = gamma_sum / (
+                np.sum(gamma_sum, axis=1, keepdims=True) + self.epsilon
+            )
+
+            # Smoothing
             new_initial_probs += self.epsilon
             new_initial_probs /= new_initial_probs.sum()
 
@@ -338,15 +355,16 @@ class HMM:
             new_emission_probs += self.epsilon
             new_emission_probs /= new_emission_probs.sum(axis=1, keepdims=True)
 
-            # Compute log-likelihood
-            log_prob_total = np.sum(np.log(scaling_factors + self.epsilon))
-            log_likelihoods.append(log_prob_total)
-            print(f"Iteration {iteration + 1}: Log-Likelihood = {log_prob_total:.6f}")
+            # Store and print iteration log-likelihood
+            log_likelihoods.append(total_log_prob)
+            print(f"Iteration {iteration + 1}: Log-Likelihood = {total_log_prob:.6f}")
 
             # Check for convergence
-            if iteration > 0 and abs(log_likelihoods[-1] - log_likelihoods[-2]) < convergence_threshold:
-                print(f"Converged at iteration {iteration + 1}.")
-                break
+            if iteration > 0:
+                improvement = abs(log_likelihoods[-1] - log_likelihoods[-2])
+                if improvement < convergence_threshold:
+                    print(f"Converged at iteration {iteration + 1}.")
+                    break
 
             # Update parameters
             self.initial_probs = new_initial_probs
