@@ -1,7 +1,7 @@
 # HMM
 This is First-Order Hidden Markov Model (HMM), implemented in Python and includes visualization tools.
 
-This project provides a Python implementation of a First-Order Hidden Markov Model (HMM) along with utilities for visualization and training. The implementation supports key algorithms such as Forward, Backward, Viterbi, and Baum-Welch, and includes tools to visualize model parameters, probabilities, and training progression.
+This project provides a Python implementation of a First-Order Hidden Markov Model (HMM) along with utilities for visualization and training. The implementation supports key algorithms such as Forward, Backward, Viterbi, and Baum-Welch, and includes tools to visualize model parameters, probabilities, and training progression. It only has one sequence but can be easily revised to handle the multiple
 
 Features
 
@@ -43,7 +43,7 @@ Installation
 
 Clone the repository:
 
-git clone https://github.com/your-username/hmm-project.git
+git clone https://github.com/Mio-Hasumi/HMM 
 cd hmm-project
 
 Install dependencies:
@@ -54,7 +54,7 @@ pip install seaborn
 
 Usage
 
-Run the Test Script
+Run the Sample Test Script
 
 The test_hmm.py script demonstrates the following:
 
@@ -127,35 +127,3 @@ Transition and Emission Matrices
 
 
 Log-Likelihood Progression
-
-
-
-Dependencies
-
-Python 3.x
-
-Numpy: Efficient array operations
-
-Matplotlib: Visualization
-
-Seaborn: Enhanced heatmap and plotting aesthetics
-
-Install via:
-
-pip install -r requirements.txt
-
-License
-
-This project is licensed under the MIT License. See the LICENSE file for details.
-
-Future Enhancements
-
-Support for higher-order HMMs.
-
-Integration of continuous observation spaces (e.g., Gaussian emissions).
-
-Batch training on multiple sequences.
-
-Advanced visualization tools with interactivity.
-
-
