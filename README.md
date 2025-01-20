@@ -54,7 +54,7 @@ pip install seaborn
 
 Usage
 
-Run the Sample Test Script
+Run the Sample Test Script/Use
 
 The test_hmm.py script demonstrates the following:
 
@@ -69,61 +69,3 @@ Decoding the most probable hidden state path using Viterbi.
 Training the HMM with Baum-Welch.
 
 Visualizing model parameters and results.
-
-Run the script:
-
-python test_hmm.py
-
-Key Outputs
-
-Console Outputs:
-
-Generated observation and hidden state sequences.
-
-Forward/Backward probability matrices and scaling factors.
-
-Log probabilities of observation sequences.
-
-Viterbi decoded paths.
-
-Log-likelihood progression during Baum-Welch training.
-
-Visualizations:
-
-Forward and Backward probability matrices (heatmaps).
-
-Transition and Emission probability matrices (heatmaps).
-
-Log-likelihood progression during Baum-Welch training (line plot).
-
-Viterbi decoded path (state path vs. observations).
-
-Example Output
-
-Console Output
-
-Generated Observations : [1 2 1 0 0 2 1 1 1 0]
-Generated Hidden States: [1 0 0 1 1 0 0 0 0 1]
-
---- Forward Algorithm ---
-Forward Probability Matrix:
- [[0.6667 0.8824 0.7255 ...]
- [0.3333 0.1176 0.2745 ...]]
-Scaling Factors: [0.36 0.34 0.366 ...]
-
---- Backward Algorithm ---
-Backward Probability Matrix:
- [[3.095 2.914 ...]
- [2.142 3.138 ...]]
-
---- Observation Probability ---
-Log Probability of the sequence = -10.8837
-...
-
-Visualizations
-
-Transition and Emission Matrices
-
-
-
-Log-Likelihood Progression
