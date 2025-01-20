@@ -114,11 +114,7 @@ class HMM:
 
         # Recursion
         for t in range(1, seq_length):
-            for state in range(num_states):
-                forward_probs[state, t] = (
-                    np.dot(forward_probs[:, t-1], self.transition_probs[:, state])
-                    * self.emission_probs[state, observation_sequence[t]]
-                )
+            forward_probs[:, t] = (forward_probs[:, t-1] @ self.transition_probs) * self.emission_probs[:, observation_sequence[t]]
             scaling_factors[t] = forward_probs[:, t].sum()
             if scaling_factors[t] == 0:
                 raise ValueError(f"Scaling factor at t={t} is zero.")
@@ -153,12 +149,7 @@ class HMM:
 
         # Recursion
         for t in reversed(range(seq_length - 1)):
-            for state in range(num_states):
-                backward_probs[state, t] = np.sum(
-                    self.transition_probs[state, :]
-                    * self.emission_probs[:, observation_sequence[t+1]]
-                    * backward_probs[:, t+1]
-                )
+            backward_probs[:, t] = (self.transition_probs @ (self.emission_probs[:, observation_sequence[t+1]] * backward_probs[:, t+1]))
             backward_probs[:, t] /= scaling_factors[t]
 
         return backward_probs
@@ -179,7 +170,7 @@ class HMM:
             Log probability of the observation sequence
         """
         _, scaling_factors = self.forward_algorithm(observation_sequence)
-        log_prob = np.sum(np.log(scaling_factors + self.epsilon))
+        log_prob = -np.sum(np.log(scaling_factors + self.epsilon))
         return log_prob
 
     def viterbi_algorithm(self, observation_sequence):
@@ -247,7 +238,7 @@ class HMM:
             best_path.insert(0, last_state)
         return best_log_prob, best_path
 
-    def train_baum_welch(self, observations, convergence_threshold=0.05, max_iterations=1000):
+    def train_baum_welch(self, observations, convergence_threshold=0.01, max_iterations=1000):
         """
         Train the HMM using the Baum-Welch algorithm, with smoothing to prevent zero probabilities.
         
@@ -256,7 +247,7 @@ class HMM:
         observations : list or numpy.ndarray
             Observation sequence (or a list of them, if you wish to extend)
         convergence_threshold : float, optional
-            Convergence threshold (default 0.05)
+            Convergence threshold (default 0.01)
         max_iterations : int, optional
             Maximum number of iterations (default 1000)
         
@@ -265,104 +256,106 @@ class HMM:
         log_likelihoods : list
             List of log-likelihoods for each iteration
         """
-        # Convert
-        if isinstance(observations, np.ndarray) and observations.ndim == 1:
-            observations = [observations]
+        # Convert to list of sequences if not already
+        if isinstance(observations, np.ndarray):
+            if observations.ndim == 1:
+                observations = [observations]
+            else:
+                observations = list(observations)
+        elif isinstance(observations, list):
+            if not all(isinstance(seq, (list, np.ndarray)) for seq in observations):
+                observations = [observations]
+        else:
+            raise ValueError("Observations must be a list or numpy array.")
 
         num_states = self.transition_probs.shape[0]
         log_likelihoods = []
 
         for iteration in range(max_iterations):
-            # Only one sequence in this snippet here
-            seq = observations[0]
+            total_log_prob = 0
+            xi_sum = np.zeros_like(self.transition_probs)
+            gamma_sum = np.zeros_like(self.emission_probs)
+            gamma_initial_sum = np.zeros(self.initial_probs.shape)
 
-            try:
-                # Forward and Backward passes
-                alpha, scaling_factors = self.forward_algorithm(seq)
-                beta = self.backward_algorithm(seq, scaling_factors)
-            except ValueError as e:
-                print(f"Iteration {iteration}: {e}")
+            for seq in observations:
+                try:
+                    # Forward and Backward passes
+                    alpha, scaling_factors = self.forward_algorithm(seq)
+                    beta = self.backward_algorithm(seq, scaling_factors)
+                except ValueError as e:
+                    print(f"Iteration {iteration}: {e}")
+                    break
+
+                # Compute xi and gamma
+                T = len(seq)
+                xi = np.zeros((num_states, num_states, T - 1))
+                for t in range(T - 1):
+                    denominator = np.sum(
+                        alpha[:, t] * self.transition_probs * self.emission_probs[:, seq[t+1]] * beta[:, t+1]
+                    )
+                    if denominator == 0:
+                        print(f"Iteration {iteration}: Denominator zero at time {t}. Skipping this sequence.")
+                        break
+                    for i in range(num_states):
+                        numerator = (
+                            alpha[i, t]
+                            * self.transition_probs[i, :]
+                            * self.emission_probs[:, seq[t+1]]
+                            * beta[:, t+1]
+                        )
+                        xi[i, :, t] = numerator / (denominator + self.epsilon)
+                else:
+                    gamma = np.sum(xi, axis=1)
+                    # final gamma for time T-1
+                    final_gamma = alpha[:, -1] * beta[:, -1]
+                    final_gamma /= np.sum(final_gamma) + self.epsilon
+                    gamma = np.hstack((gamma, final_gamma.reshape(-1, 1)))
+
+                    # Update accumulators
+                    xi_sum += np.sum(xi, axis=2)
+                    gamma_initial_sum += gamma[:, 0]
+                    for state in range(num_states):
+                        for symbol in range(self.emission_probs.shape[1]):
+                            mask = (seq == symbol)
+                            gamma_sum[state, symbol] += np.sum(gamma[state, mask])
+
+                    # Compute log-likelihood
+                    log_prob = np.sum(np.log(scaling_factors + self.epsilon))
+                    total_log_prob += log_prob
+
+            # Update model parameters
+            new_initial_probs = gamma_initial_sum / np.sum(gamma_initial_sum)
+            new_transition_probs = xi_sum / (np.sum(xi_sum, axis=1, keepdims=True) + self.epsilon)
+            new_emission_probs = gamma_sum / (np.sum(gamma_sum, axis=1, keepdims=True) + self.epsilon)
+
+            # Smoothing to prevent zero probabilities
+            new_initial_probs += self.epsilon
+            new_initial_probs /= new_initial_probs.sum()
+
+            new_transition_probs += self.epsilon
+            new_transition_probs /= new_transition_probs.sum(axis=1, keepdims=True)
+
+            new_emission_probs += self.epsilon
+            new_emission_probs /= new_emission_probs.sum(axis=1, keepdims=True)
+
+            # Compute log-likelihood
+            log_prob_total = np.sum(np.log(scaling_factors + self.epsilon))
+            log_likelihoods.append(log_prob_total)
+            print(f"Iteration {iteration + 1}: Log-Likelihood = {log_prob_total:.6f}")
+
+            # Check for convergence
+            if iteration > 0 and abs(log_likelihoods[-1] - log_likelihoods[-2]) < convergence_threshold:
+                print(f"Converged at iteration {iteration + 1}.")
                 break
 
-            # Compute xi and gamma
-            T = len(seq)
-            xi = np.zeros((num_states, num_states, T - 1))
-            for t in range(T - 1):
-                denominator = np.sum(
-                    alpha[:, t] * self.transition_probs
-                    * self.emission_probs[:, seq[t+1]] * beta[:, t+1]
-                )
-                if denominator == 0:
-                    print(f"Iteration {iteration}: Denominator zero at time {t}. Skipping this iteration.")
-                    break
-                for i in range(num_states):
-                    numer = (
-                        alpha[i, t]
-                        * self.transition_probs[i, :]
-                        * self.emission_probs[:, seq[t+1]]
-                        * beta[:, t+1]
-                    )
-                    xi[i, :, t] = numer / (denominator + self.epsilon)
-            else:
-                # If no break occurred
-                gamma = np.sum(xi, axis=1)
-                # final gamma for time T-1
-                final_gamma = alpha[:, -1] * beta[:, -1]
-                final_gamma /= np.sum(final_gamma) + self.epsilon
-                gamma = np.hstack((gamma, final_gamma.reshape(-1, 1)))
+            # Update parameters
+            self.initial_probs = new_initial_probs
+            self.transition_probs = new_transition_probs
+            self.emission_probs = new_emission_probs
 
-                # Update initial probs
-                updated_initial_probs = gamma[:, 0]
-
-                # Update transition probs
-                updated_transition_probs = (
-                    np.sum(xi, axis=2) / (np.sum(gamma[:, :-1], axis=1).reshape(-1, 1) + self.epsilon)
-                )
-
-                # Update emission probs
-                updated_emission_probs = np.zeros_like(self.emission_probs)
-                for state in range(num_states):
-                    for symbol in range(self.emission_probs.shape[1]):
-                        mask = (seq == symbol)
-                        updated_emission_probs[state, symbol] = np.sum(gamma[state, mask])
-                denom_emission = np.sum(gamma, axis=1) + self.epsilon
-                updated_emission_probs = (updated_emission_probs.T / denom_emission).T
-
-                # Compute log-likelihood
-                log_prob = np.sum(np.log(scaling_factors + self.epsilon))
-                log_likelihoods.append(log_prob)
-                print(f"Iteration {iteration}: Log-Likelihood = {log_prob:.6f}")
-
-                # ------------------
-                # *** Smoothing Step ***
-                # to prevent updated parameters from collapsing to zero
-                updated_initial_probs += self.epsilon
-                updated_initial_probs /= updated_initial_probs.sum()
-
-                updated_transition_probs += self.epsilon
-                updated_transition_probs /= updated_transition_probs.sum(axis=1, keepdims=True)
-
-                updated_emission_probs += self.epsilon
-                updated_emission_probs /= updated_emission_probs.sum(axis=1, keepdims=True)
-                # ------------------
-
-                # Check for convergence
-                delta_initial = np.max(np.abs(self.initial_probs - updated_initial_probs))
-                delta_transition = np.max(np.abs(self.transition_probs - updated_transition_probs))
-                delta_emission = np.max(np.abs(self.emission_probs - updated_emission_probs))
-                if max(delta_initial, delta_transition, delta_emission) < convergence_threshold:
-                    print(f"Converged at iteration {iteration}.")
-                    self.initial_probs = updated_initial_probs
-                    self.transition_probs = updated_transition_probs
-                    self.emission_probs = updated_emission_probs
-                    break
-
-                # Update parameters
-                self.initial_probs = updated_initial_probs
-                self.transition_probs = updated_transition_probs
-                self.emission_probs = updated_emission_probs
         else:
             print("Baum-Welch did not converge within the maximum number of iterations.")
 
         return log_likelihoods
+
 

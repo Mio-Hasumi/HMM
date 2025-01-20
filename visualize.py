@@ -1,139 +1,157 @@
 import matplotlib.pyplot as plt
 import seaborn as sns
-import matplotlib
+import numpy as np
 
-# Set a font that supports English and other characters, adjust as needed
-matplotlib.rcParams['font.sans-serif'] = ['Arial']
-matplotlib.rcParams['axes.unicode_minus'] = False  # Ensure that minus signs are displayed correctly
-
-def plot_forward_backward(forward_probs, backward_probs, scaling_factors=None):
+def plot_transition_emission(transition_probs, emission_probs, states=None, observations=None):
     """
-    Visualize the Forward and Backward matrices.
+    Plots the transition and emission probability matrices as separate heatmaps.
     
-    Parameters
-    ----------
-    forward_probs : numpy.ndarray
-        Scaled forward matrix of shape (N, T)
-    backward_probs : numpy.ndarray
-        Scaled backward matrix of shape (N, T)
-    scaling_factors : numpy.ndarray, optional
-        Scaling factors for each time step of shape (T,)
+    Args:
+        transition_probs (np.ndarray): Transition probability matrix.
+        emission_probs (np.ndarray): Emission probability matrix.
+        states (list, optional): List of state names. Defaults to ['State 0', 'State 1', ...].
+        observations (list, optional): List of observation names. Defaults to ['Obs 0', 'Obs 1', ...].
     """
-    num_states, seq_length = forward_probs.shape
-
-    # Forward Probability Heatmap
-    plt.figure(figsize=(12, 6))
-    sns.heatmap(forward_probs, annot=True, fmt=".4f", cmap="viridis",
-                xticklabels=range(1, seq_length + 1),
-                yticklabels=[f"State {i}" for i in range(num_states)])
-    plt.title("Forward Probability Matrix")
-    plt.xlabel("Time Step")
-    plt.ylabel("State")
-    plt.show()
-
-    # Backward Probability Heatmap
-    plt.figure(figsize=(12, 6))
-    sns.heatmap(backward_probs, annot=True, fmt=".4f", cmap="viridis",
-                xticklabels=range(1, seq_length + 1),
-                yticklabels=[f"State {i}" for i in range(num_states)])
-    plt.title("Backward Probability Matrix")
-    plt.xlabel("Time Step")
-    plt.ylabel("State")
-    plt.show()
-
-    if scaling_factors is not None:
-        # Scaling Factors Line Plot
-        plt.figure(figsize=(12, 4))
-        plt.plot(range(1, seq_length + 1), scaling_factors, marker='o')
-        plt.title("Scaling Factors")
-        plt.xlabel("Time Step")
-        plt.ylabel("Scaling Factor")
-        plt.grid(True)
-        plt.show()
-
-def plot_transition_emission(transition_probs, emission_probs):
-    """
-    Visualize the Transition and Emission probability matrices.
+    if states is None:
+        states = [f"State {i}" for i in range(transition_probs.shape[0])]
+    if observations is None:
+        observations = [f"Obs {i}" for i in range(emission_probs.shape[1])]
     
-    Parameters
-    ----------
-    transition_probs : numpy.ndarray
-        Transition probability matrix of shape (N, N)
-    emission_probs : numpy.ndarray
-        Emission probability matrix of shape (N, M)
-    """
-    num_states = transition_probs.shape[0]
-    num_symbols = emission_probs.shape[1]
-
-    # Transition Probability Heatmap
+    # Plot Transition Probabilities
     plt.figure(figsize=(8, 6))
-    sns.heatmap(transition_probs, annot=True, fmt=".2f", cmap="Blues",
-                xticklabels=[f"State {i}" for i in range(num_states)],
-                yticklabels=[f"State {i}" for i in range(num_states)])
-    plt.title("Transition Probability Matrix")
-    plt.xlabel("To State")
-    plt.ylabel("From State")
+    sns.heatmap(
+        transition_probs,
+        annot=True,
+        cmap='Blues',
+        fmt=".2f",                
+        annot_kws={"size": 8},    
+        xticklabels=states,
+        yticklabels=states
+    )
+    plt.title('Transition Probabilities')
+    plt.xlabel('To State')
+    plt.ylabel('From State')
+    plt.tight_layout()
     plt.show()
-
-    # Emission Probability Heatmap
-    plt.figure(figsize=(8, 6))
-    sns.heatmap(emission_probs, annot=True, fmt=".2f", cmap="Greens",
-                xticklabels=[f"Obs {i}" for i in range(num_symbols)],
-                yticklabels=[f"State {i}" for i in range(num_states)])
-    plt.title("Emission Probability Matrix")
-    plt.xlabel("Observation Symbol")
-    plt.ylabel("State")
-    plt.show()
-
-def plot_viterbi_path(observations, best_path):
-    """
-    Visualize the observation sequence and the corresponding Viterbi path.
     
-    Parameters
-    ----------
-    observations : list or numpy.ndarray
-        Observation sequence
-    best_path : list
-        Most probable hidden state path
+    # Plot Emission Probabilities
+    plt.figure(figsize=(8, 6))
+    sns.heatmap(
+        emission_probs,
+        annot=True,
+        cmap='Greens',
+        fmt=".2f",
+        annot_kws={"size": 8},
+        xticklabels=observations,
+        yticklabels=states
+    )
+    plt.title('Emission Probabilities')
+    plt.xlabel('Observations')
+    plt.ylabel('States')
+    plt.tight_layout()
+    plt.show()
+
+def plot_forward_backward(forward_probs, backward_probs, scaling_factors, states=None):
     """
-    seq_length = len(observations)
-    time_steps = range(seq_length)
-
-    plt.figure(figsize=(14, 6))
-
-    # Observation Sequence
-    plt.subplot(2, 1, 1)
-    plt.plot(time_steps, observations, marker='o', linestyle='-', color='blue')
-    plt.title("Observation Sequence")
-    plt.xlabel("Time Step")
-    plt.ylabel("Observation Symbol")
+    Plots the forward and backward probabilities as separate heatmaps, plus a line plot of scaling factors.
+    
+    Args:
+        forward_probs (np.ndarray): Forward probability matrix.
+        backward_probs (np.ndarray): Backward probability matrix.
+        scaling_factors (np.ndarray): Scaling factors used in computations.
+        states (list, optional): List of state names. Defaults to ['State 0', 'State 1', ...].
+    """
+    if states is None:
+        states = [f"State {i}" for i in range(forward_probs.shape[0])]
+    
+    # Plot Forward Probabilities
+    plt.figure(figsize=(10, 6))
+    sns.heatmap(
+        forward_probs,
+        annot=True,
+        cmap='Purples',
+        fmt=".2e",                
+        annot_kws={"size": 8},
+        yticklabels=states,
+        xticklabels=False
+    )
+    plt.title('Forward Probabilities')
+    plt.xlabel('Time Step')
+    plt.ylabel('States')
+    plt.tight_layout()
+    plt.show()
+    
+    # Plot Backward Probabilities
+    plt.figure(figsize=(10, 6))
+    sns.heatmap(
+        backward_probs,
+        annot=True,
+        cmap='Oranges',
+        fmt=".2e",
+        annot_kws={"size": 8},
+        yticklabels=states,
+        xticklabels=False
+    )
+    plt.title('Backward Probabilities')
+    plt.xlabel('Time Step')
+    plt.ylabel('States')
+    plt.tight_layout()
+    plt.show()
+    
+    # Plot Scaling Factors
+    plt.figure(figsize=(10, 4))
+    plt.plot(range(1, len(scaling_factors) + 1), scaling_factors, marker='o', linestyle='-')
+    plt.title('Scaling Factors Over Time')
+    plt.xlabel('Time Step')
+    plt.ylabel('Scaling Factor')
     plt.grid(True)
+    plt.tight_layout()
+    plt.show()
 
-    # Viterbi Path
-    plt.subplot(2, 1, 2)
-    plt.step(time_steps, best_path, where='mid', color='red', linewidth=2)
-    plt.title("Viterbi Most Probable State Path")
-    plt.xlabel("Time Step")
-    plt.ylabel("Hidden State")
-    plt.yticks([0, 1], ['State 0', 'State 1'])
+def plot_viterbi_path(observations_seq, best_path, states=None, observations=None):
+    """
+    Plots the Viterbi path alongside the observations.
+    
+    Args:
+        observations_seq (list): List of observation indices.
+        best_path (list): List of state indices representing the Viterbi path.
+        states (list, optional): List of state names. Defaults to ['State 0', 'State 1', ...].
+        observations (list, optional): List of observation names. Defaults to ['Obs 0', 'Obs 1', ...].
+    """
+    if states is None:
+        num_states = max(best_path) + 1
+        states = [f"State {i}" for i in range(num_states)]
+    if observations is None:
+        num_obs = max(observations_seq) + 1
+        observations = [f"Obs {i}" for i in range(num_obs)]
+    
+    obs_labels = [observations[obs] for obs in observations_seq]
+    state_labels = [states[state] for state in best_path]
+
+    plt.figure(figsize=(15, 4))
+    plt.plot(range(len(obs_labels)), best_path, marker='o', color='blue', label='Viterbi Path')
+    plt.xticks(range(len(obs_labels)), obs_labels)
+    plt.yticks(range(len(states)), states)
+    plt.xlabel('Time Step')
+    plt.ylabel('States')
+    plt.title('Viterbi Path')
+    plt.legend()
     plt.grid(True)
-
     plt.tight_layout()
     plt.show()
 
 def plot_log_likelihood(log_likelihoods):
     """
-    Visualize the progression of log-likelihoods during Baum-Welch training.
+    Plots the log-likelihood progression over training iterations.
     
-    Parameters
-    ----------
-    log_likelihoods : list
-        List of log-likelihoods for each iteration
+    Args:
+        log_likelihoods (list): List of log-likelihood values per iteration.
     """
-    plt.figure(figsize=(10, 5))
-    plt.plot(range(1, len(log_likelihoods) + 1), log_likelihoods, marker='o')
-    plt.title("Log-Likelihood Progression During Baum-Welch Training")
-    plt.xlabel("Iteration")
-    plt.ylabel("Log-Likelihood")
+    plt.figure(figsize=(10, 6))
+    plt.plot(range(1, len(log_likelihoods) + 1), log_likelihoods, marker='o', linestyle='-', color='green')
+    plt.xlabel('Iteration')
+    plt.ylabel('Log-Likelihood')
+    plt.title('Log-Likelihood Progression during Baum-Welch Training')
     plt.grid(True)
+    plt.tight_layout()
     plt.show()
